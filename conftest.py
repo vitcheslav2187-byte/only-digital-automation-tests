@@ -14,7 +14,7 @@ HEADLESS = os.getenv("HEADLESS", "False").lower() == "true"
 
 @pytest.fixture(scope="function")
 def driver():
-    """Initialize WebDriver"""
+    """Initialize WebDriver with error handling for browser version detection"""
     chrome_options = Options()
     
     if HEADLESS:
@@ -23,9 +23,23 @@ def driver():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
     
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    try:
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+    except Exception as e:
+        # Fallback: Use Chrome with system PATH if WebDriver Manager fails
+        print(f"WebDriver Manager error: {e}")
+        print("Attempting to use system Chrome...")
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+        except Exception as e2:
+            print(f"Failed to initialize Chrome: {e2}")
+            pytest.skip(f"Chrome browser not available: {e2}")
+    
     driver.implicitly_wait(10)
     driver.get(BASE_URL)
     
